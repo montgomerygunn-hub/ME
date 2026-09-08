@@ -263,7 +263,11 @@ def _finish_me_processing(tmp_path, report_month, goals):
     )
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    synopses = me_parser.generate_clinic_synopses(clinics, pace, days_into, days_in_month, month_label, api_key)
+    try:
+        synopses = me_parser.generate_clinic_synopses(clinics, pace, days_into, days_in_month, month_label, api_key)
+    except Exception as e:
+        flash(f"AI clinic synopsis failed (dashboard still generated without it): {e}")
+        synopses = {}
 
     snapshot = me_parser.snapshot_for_history(clinics, goals, month_label)
 

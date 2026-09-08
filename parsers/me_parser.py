@@ -230,7 +230,7 @@ def snapshot_for_history(clinics, goals, month_label):
 
 def generate_clinic_synopses(clinics, pace, days_into, days_in_month, month_label, api_key):
     if not api_key:
-        return {}
+        raise RuntimeError("ANTHROPIC_API_KEY is not set — no AI synopsis was generated.")
 
     days_remaining = days_in_month - days_into
 
@@ -267,11 +267,16 @@ CLINIC DATA:
 {''.join(clinic_summaries)}
 
 For EACH clinic, write a concise 2-3 sentence synopsis that appears directly below that clinic's KPI table. Focus on:
-- Overall trajectory this month (ahead/behind pace, and on what)
-- The single most important thing to watch or act on
-- Member base trend (growing/shrinking) if notable
+- What's working or not working at THIS clinic specifically
+- The 1-2 most important things to know or act on
+- Any standout metrics (good or bad)
 
-Respond ONLY as JSON: {{"Clinic Name": "synopsis text", ...}} for all 7 clinics. No markdown, no preamble."""
+Keep each synopsis tight and clinic-specific. Do NOT summarize across clinics or make portfolio-level observations — those belong in a separate portfolio summary. Be direct and numbers-grounded. No fluff. Only cite figures that appear explicitly in the data provided above — do not infer, estimate, or fabricate benchmarks or averages not directly present in the data.
+
+Respond ONLY with a JSON object where each key is the exact clinic name and the value is the synopsis string. Example format:
+{{"Katy": "Synopsis here.", "The Woodlands": "Synopsis here."}}
+
+Clinic names to use exactly: {[c['name'] for c in clinics]}"""
 
     try:
         resp = requests.post(
@@ -283,19 +288,25 @@ Respond ONLY as JSON: {{"Clinic Name": "synopsis text", ...}} for all 7 clinics.
             },
             json={
                 "model": "claude-sonnet-4-6",
-                "max_tokens": 2000,
+                "max_tokens": 1200,
                 "messages": [{"role": "user", "content": prompt}],
             },
             timeout=60,
         )
-        resp.raise_for_status()
-        data = resp.json()
-        text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
-        text = text.strip()
-        if text.startswith("```"):
-            text = re.sub(r"^```(json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
-        import json as _json
-        return _json.loads(text)
-    except Exception as e:
-        print(f"  Clinic synopses failed: {e}")
-        return {}
+    except requests.RequestException as e:
+        raise RuntimeError(f"AI synopsis request failed to reach Anthropic: {e}") from e
+
+    if resp.status_code != 200:
+        # Surface the API's own error body -- e.g. "invalid x-api-key" -- rather
+        # than swallowing it, so a bad/missing ANTHROPIC_API_KEY is diagnosable
+        # from the app instead of only showing up in server logs.
+        raise RuntimeError(f"AI synopsis request failed ({resp.status_code}): {resp.text[:300]}")
+
+    data = resp.json()
+    text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        raise RuntimeError(f"AI synopsis response wasn't valid JSON: {text[:300]}")
+
+    import json as _json
+    return _json.loads(match.group(0))
