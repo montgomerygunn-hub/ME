@@ -27,7 +27,7 @@
   <nav>
     <a href="{{ url_for('me_dashboard') }}" class="{{ 'active' if request.path in ['/', '/me'] else '' }}">VIEW ME Dashboard</a>
     <a href="{{ url_for('me_upload') }}" class="upload-link {{ 'active' if request.path == '/me/upload' or request.path == '/me/goals' else '' }}">Upload Scorecard Datamart Excel File</a>
-    <a href="{{ url_for('sales_dashboard') }}" class="{{ 'active' if request.path == '/sales' else '' }}">Sales Dashboard</a>
+    <a href="{{ url_for('sales_dashboard') }}" class="{{ 'active' if request.path == '/sales' else '' }}">VIEW Sales Dashboard</a>
     <a href="{{ url_for('sales_upload') }}" class="upload-link {{ 'active' if request.path == '/sales/upload' else '' }}">Upload Sales Report</a>
     <a href="{{ url_for('admin_seed') }}" class="{{ 'active' if request.path == '/admin/seed' else '' }}" style="font-size:11px;color:#888">Seed History</a>
     <span class="spacer"></span>
