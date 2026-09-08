@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Upload Sales Report{% endblock %}
+{% block content %}
+  <form class="card-form" method="post" enctype="multipart/form-data">
+    <h2 style="font-size:15px;margin-bottom:4px">Upload Employee Performance Summary</h2>
+    <p style="font-size:12px;color:#888">Upload the monthly Employee Performance Summary .xlsx export. Deltas are calculated automatically against the last run — week-over-week if it's the same month, month-over-month otherwise.</p>
+    <label>Report file (.xlsx)</label>
+    <input type="file" name="report_file" accept=".xlsx" required>
+    <button class="btn" type="submit" style="margin-top:1.25rem;width:100%">Process & Generate Dashboard</button>
+  </form>
+{% endblock %}

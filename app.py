@@ -12,8 +12,9 @@ from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 
 import db
-from parsers import me_parser
+from parsers import me_parser, sales_parser
 from parsers.me_render import build_html as build_me_html
+from parsers.sales_render import build_html as build_sales_html
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-me")
@@ -32,6 +33,8 @@ ME_EMAIL_TO = [
     "beth.webster@massageenvy.com",
     "becky.ober@massageenvy.com",
 ]
+SALES_EMAIL_TO = ME_EMAIL_TO
+SALES_EMAIL_SUBJECT = "FDA/Manager Sales Report"
 
 db.init_db()
 
@@ -71,7 +74,7 @@ def month_sort_key(month_label):
     return datetime.strptime(month_label, "%B %Y").strftime("%Y-%m")
 
 
-def send_dashboard_email(html_body, month_label, pdf_path=None):
+def send_dashboard_email(html_body, subject, to_list, pdf_path=None):
     smtp_server = os.environ.get("SMTP_SERVER", "secure.emailsrvr.com")
     smtp_port   = int(os.environ.get("SMTP_PORT", 465))
     username    = os.environ.get("SMTP_USERNAME")
@@ -82,9 +85,9 @@ def send_dashboard_email(html_body, month_label, pdf_path=None):
         raise RuntimeError("SMTP_USERNAME / SMTP_PASSWORD not configured")
 
     msg = MIMEMultipart("mixed")
-    msg["Subject"] = f"Monthly Progress — {month_label}"
+    msg["Subject"] = subject
     msg["From"]    = email_from
-    msg["To"]      = ", ".join(ME_EMAIL_TO)
+    msg["To"]      = ", ".join(to_list)
 
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(html_body, "html"))
@@ -99,7 +102,7 @@ def send_dashboard_email(html_body, month_label, pdf_path=None):
     context = ssl.create_default_context()
     with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context) as server:
         server.login(username, password)
-        server.sendmail(email_from, ME_EMAIL_TO, msg.as_string())
+        server.sendmail(email_from, to_list, msg.as_string())
 
 
 def generate_pdf(html_str, pdf_path):
@@ -255,7 +258,7 @@ def _finish_me_processing(tmp_path, report_month, goals):
         flash(f"PDF generation failed (email will still send without it): {e}")
 
     try:
-        send_dashboard_email(html, month_label, pdf_path)
+        send_dashboard_email(html, f"Monthly Progress — {month_label}", ME_EMAIL_TO, pdf_path)
         flash(f"Dashboard generated and emailed to the team for {month_label}.")
     except Exception as e:
         flash(f"Dashboard generated, but email failed: {e}")
@@ -269,8 +272,87 @@ def _finish_me_processing(tmp_path, report_month, goals):
 @app.route("/sales")
 @login_required
 def sales_dashboard():
-    # TODO: FDA/Manager sales dashboard — pending sales_dashboard.py parsing logic
-    return render_template("coming_soon.html", name="Sales Dashboard")
+    month = request.args.get("month")
+    report = db.get_report("sales", month) if month else db.get_latest_report("sales")
+    months = db.list_months("sales")
+
+    if not report:
+        return render_template("sales_dashboard.html", html=None, months=months, selected_month=None)
+
+    d = report["data"]
+    html = build_sales_html(
+        d["employees"], report["month_label"], d["date_range"],
+        d["prev_month"], d["prev_run_date"], d["prev_clinic_ltv"],
+    )
+    return render_template("sales_dashboard.html", html=html, months=months, selected_month=report["month_label"])
+
+
+@app.route("/sales/upload", methods=["GET", "POST"])
+@login_required
+def sales_upload():
+    if request.method == "GET":
+        return render_template("sales_upload.html")
+
+    file = request.files.get("report_file")
+    if not file or not file.filename:
+        flash("Please choose the Employee Performance Summary .xlsx file.")
+        return redirect(url_for("sales_upload"))
+
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        file.save(tmp.name)
+        tmp_path = tmp.name
+
+    try:
+        last_run = db.get_last_run("sales")
+        prev = last_run["data"]["snapshot"] if last_run else {}
+
+        employees, month_label, date_range, prev_month, prev_run_date, prev_clinic_ltv = \
+            sales_parser.parse_report(tmp_path, prev)
+
+        if not employees:
+            flash("No Front Desk/Manager rows found in this file — check it's the right report.")
+            return redirect(url_for("sales_upload"))
+
+        clinic_ltv_now = sales_parser.compute_clinic_ltv(employees)
+        snapshot = sales_parser.snapshot_for_history(employees, month_label, clinic_ltv_now)
+
+        db.save_report(
+            "sales", month_label, month_sort_key(month_label),
+            data={
+                "employees": employees,
+                "date_range": date_range,
+                "prev_month": prev_month,
+                "prev_run_date": prev_run_date,
+                "prev_clinic_ltv": prev_clinic_ltv,
+                "snapshot": snapshot,
+            },
+        )
+
+        html = build_sales_html(employees, month_label, date_range, prev_month, prev_run_date, prev_clinic_ltv)
+
+        pdf_path = None
+        try:
+            pdf_path = os.path.join(tempfile.gettempdir(), f"ME_Sales_Dashboard_{month_label.replace(' ', '_')}.pdf")
+            generate_pdf(html, pdf_path)
+        except Exception as e:
+            flash(f"PDF generation failed (email will still send without it): {e}")
+
+        try:
+            send_dashboard_email(html, f"{SALES_EMAIL_SUBJECT} — {month_label}", SALES_EMAIL_TO, pdf_path)
+            flash(f"Sales dashboard generated and emailed to the team for {month_label}.")
+        except Exception as e:
+            flash(f"Sales dashboard generated, but email failed: {e}")
+
+        if pdf_path and os.path.exists(pdf_path):
+            os.unlink(pdf_path)
+
+        return redirect(url_for("sales_dashboard", month=month_label))
+    except Exception as e:
+        flash(f"Failed to process file: {e}")
+        return redirect(url_for("sales_upload"))
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 @app.route("/healthz")

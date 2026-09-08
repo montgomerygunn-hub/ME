@@ -102,6 +102,19 @@ def get_previous_report(report_type, before_month_sort):
         return _row_to_dict(row)
 
 
+def get_last_run(report_type):
+    """Most recently generated report regardless of which calendar month it
+    covers -- mirrors the old *_prev.json's 'whatever was written last'
+    semantics, used for the sales dashboard's same-month-vs-different-month
+    delta logic."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM reports WHERE report_type=? ORDER BY updated_at DESC LIMIT 1",
+            (report_type,)
+        ).fetchone()
+        return _row_to_dict(row)
+
+
 def list_months(report_type):
     with get_db() as conn:
         rows = conn.execute(
