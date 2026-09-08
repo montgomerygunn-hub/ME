@@ -20,8 +20,31 @@ from parsers.sales_render import build_html as build_sales_html
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-key-change-me")
 
-APP_USERNAME = os.environ.get("APP_USERNAME", "brett")
-APP_PASSWORD = os.environ.get("APP_PASSWORD")
+def load_app_users():
+    """
+    APP_USERS format: "user1:pass1,user2:pass2,..."
+    Falls back to the old single APP_USERNAME/APP_PASSWORD pair if APP_USERS
+    isn't set, so existing deployments keep working.
+    """
+    raw = os.environ.get("APP_USERS")
+    if raw:
+        users = {}
+        for pair in raw.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            user, _, pw = pair.partition(":")
+            users[user.strip()] = pw.strip()
+        return users
+
+    legacy_user = os.environ.get("APP_USERNAME")
+    legacy_pass = os.environ.get("APP_PASSWORD")
+    if legacy_user and legacy_pass:
+        return {legacy_user: legacy_pass}
+    return {}
+
+
+APP_USERS = load_app_users()
 
 ME_EMAIL_TO = [
     "brett.gunn@massageenvy.com",
@@ -54,10 +77,11 @@ def login_required(f):
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        if (request.form.get("username") == APP_USERNAME
-                and APP_PASSWORD
-                and request.form.get("password") == APP_PASSWORD):
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        if username in APP_USERS and APP_USERS[username] == password:
             session["logged_in"] = True
+            session["username"] = username
             return redirect(request.args.get("next") or url_for("index"))
         flash("Invalid username or password.")
     return render_template("login.html")
