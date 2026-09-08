@@ -1,6 +1,7 @@
 import os
 import ssl
 import smtplib
+import json
 import tempfile
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
@@ -145,7 +146,13 @@ def me_dashboard():
     if not report:
         return render_template("me_dashboard.html", html=None, months=months, selected_month=None)
 
-    clinics = report["data"]["clinics"]
+    clinics = report["data"].get("clinics") or []
+    if not clinics:
+        # Seed-only row (e.g. imported prior-month history/goals with no full
+        # report generated) -- nothing to render, but still selectable in history.
+        return render_template("me_dashboard.html", html=None, months=months,
+                                selected_month=report["month_label"], seed_only=True)
+
     html = build_me_html(
         clinics, report["pace"], report["days_into"], report["days_in_month"],
         report["month_label"], datetime.fromisoformat(report["end_date"]),
@@ -224,7 +231,6 @@ def me_goals():
 
 def _finish_me_processing(tmp_path, report_month, goals):
     prior = db.get_previous_report("me", month_sort_key(report_month))
-    prev_snapshot = {k: v for k, v in (prior["data"].get("prev_snapshot", {}) if prior else {}).items()}
     # prev snapshot for parse_report is keyed by clinic name -> {active_mb, suspend_pct, inactive_pct}
     prev_for_parse = prior["data"]["snapshot"] if prior and "snapshot" in prior["data"] else {}
 
@@ -280,6 +286,10 @@ def sales_dashboard():
         return render_template("sales_dashboard.html", html=None, months=months, selected_month=None)
 
     d = report["data"]
+    if not d.get("employees"):
+        return render_template("sales_dashboard.html", html=None, months=months,
+                                selected_month=report["month_label"], seed_only=True)
+
     html = build_sales_html(
         d["employees"], report["month_label"], d["date_range"],
         d["prev_month"], d["prev_run_date"], d["prev_clinic_ltv"],
@@ -353,6 +363,64 @@ def sales_upload():
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+@app.route("/admin/seed", methods=["GET", "POST"])
+@login_required
+def admin_seed():
+    if request.method == "GET":
+        return render_template("admin_seed.html")
+
+    results = []
+
+    me_file = request.files.get("me_prev_file")
+    if me_file and me_file.filename:
+        try:
+            payload = json.load(me_file.stream)
+            month_label = payload.get("_goals_month")
+            goals = payload.get("_goals")
+            if not month_label:
+                results.append("ME file: no _goals_month found — skipped.")
+            else:
+                snapshot = {k: v for k, v in payload.items()}  # already shaped like snapshot_for_history()
+                db.save_report(
+                    "me", month_label, month_sort_key(month_label),
+                    data={"clinics": [], "snapshot": snapshot},
+                    goals=goals,
+                )
+                results.append(f"ME: seeded history/goals for {month_label}.")
+        except Exception as e:
+            results.append(f"ME file failed: {e}")
+
+    sales_file = request.files.get("sales_prev_file")
+    if sales_file and sales_file.filename:
+        try:
+            payload = json.load(sales_file.stream)
+            month_label = payload.get("month_label")
+            if not month_label:
+                results.append("Sales file: no month_label found — skipped.")
+            else:
+                db.save_report(
+                    "sales", month_label, month_sort_key(month_label),
+                    data={
+                        "employees": [],
+                        "date_range": "",
+                        "prev_month": "",
+                        "prev_run_date": "",
+                        "prev_clinic_ltv": {},
+                        "snapshot": payload,
+                    },
+                )
+                results.append(f"Sales: seeded history for {month_label}.")
+        except Exception as e:
+            results.append(f"Sales file failed: {e}")
+
+    if not results:
+        results.append("No files were uploaded.")
+
+    for r in results:
+        flash(r)
+    return redirect(url_for("admin_seed"))
 
 
 @app.route("/healthz")

@@ -15,6 +15,10 @@
 
   {% if html %}
     <iframe srcdoc="{{ html|e }}" style="width:100%;border:none;min-height:100vh" onload="this.style.height=this.contentWindow.document.body.scrollHeight+40+'px'"></iframe>
+  {% elif seed_only %}
+    <div style="max-width:1150px;margin:2rem auto;text-align:center;color:#888">
+      <p>{{ selected_month }} has seeded history for delta comparisons, but no full dashboard was generated for it.</p>
+    </div>
   {% else %}
     <div style="max-width:1150px;margin:2rem auto;text-align:center;color:#888">
       <p>No sales dashboards yet.</p>

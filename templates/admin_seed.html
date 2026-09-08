@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Seed Historical Data{% endblock %}
+{% block content %}
+  <form class="card-form" method="post" enctype="multipart/form-data" style="max-width:600px">
+    <h2 style="font-size:15px;margin-bottom:4px">Seed historical data</h2>
+    <p style="font-size:12px;color:#888">One-time import from the old scripts' *_prev.json files, so the first live upload has real prior-month goals and week/month-over-month deltas instead of starting blank. Safe to leave either field empty.</p>
+
+    <label>me_dashboard_prev.json (prior month's ME goals + snapshot)</label>
+    <input type="file" name="me_prev_file" accept=".json">
+
+    <label>sales_dashboard_prev.json (most recent sales run)</label>
+    <input type="file" name="sales_prev_file" accept=".json">
+
+    <button class="btn" type="submit" style="margin-top:1.25rem;width:100%">Seed</button>
+  </form>
+{% endblock %}
