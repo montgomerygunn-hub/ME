@@ -11,6 +11,9 @@
     nav a{color:#ddd;text-decoration:none;font-size:13px;font-weight:500}
     nav a.active{color:#fff;border-bottom:2px solid #1a6eb5;padding-bottom:2px}
     nav .spacer{flex:1}
+    @keyframes upload-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+    nav a.upload-link{color:#8fd3ff;animation:upload-pulse 1.4s ease-in-out infinite}
+    nav a.upload-link.active{color:#fff;animation:none}
     .container{padding:1.5rem}
     .flash{max-width:900px;margin:0 auto 1rem;padding:10px 14px;background:#e6f1fb;border:1px solid #1a6eb5;border-radius:6px;font-size:13px}
     .btn{display:inline-block;background:#1a6eb5;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;border:none;cursor:pointer}
@@ -23,9 +26,9 @@
 <body>
   <nav>
     <a href="{{ url_for('me_dashboard') }}" class="{{ 'active' if request.path in ['/', '/me'] else '' }}">ME Dashboard</a>
-    <a href="{{ url_for('me_upload') }}" class="{{ 'active' if request.path == '/me/upload' or request.path == '/me/goals' else '' }}">Upload Scorecard Datamart Excel File</a>
+    <a href="{{ url_for('me_upload') }}" class="upload-link {{ 'active' if request.path == '/me/upload' or request.path == '/me/goals' else '' }}">Upload Scorecard Datamart Excel File</a>
     <a href="{{ url_for('sales_dashboard') }}" class="{{ 'active' if request.path == '/sales' else '' }}">Sales Dashboard</a>
-    <a href="{{ url_for('sales_upload') }}" class="{{ 'active' if request.path == '/sales/upload' else '' }}">Upload Sales Report</a>
+    <a href="{{ url_for('sales_upload') }}" class="upload-link {{ 'active' if request.path == '/sales/upload' else '' }}">Upload Sales Report</a>
     <a href="{{ url_for('admin_seed') }}" class="{{ 'active' if request.path == '/admin/seed' else '' }}" style="font-size:11px;color:#888">Seed History</a>
     <span class="spacer"></span>
     <a href="{{ url_for('logout') }}">Log out</a>
