@@ -11,9 +11,9 @@
     nav a{color:#ddd;text-decoration:none;font-size:13px;font-weight:500}
     nav a.active{color:#fff;border-bottom:2px solid #1a6eb5;padding-bottom:2px}
     nav .spacer{flex:1}
-    @keyframes upload-pulse{0%,100%{opacity:1}50%{opacity:.35}}
-    nav a.upload-link{color:#8fd3ff;animation:upload-pulse 1.4s ease-in-out infinite}
-    nav a.upload-link.active{color:#fff;animation:none}
+    @keyframes upload-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+    nav a.upload-link{color:#8fd3ff;display:inline-block;animation:upload-pulse 1.4s ease-in-out infinite}
+    nav a.upload-link.active{color:#fff;animation:none;transform:scale(1)}
     .container{padding:1.5rem}
     .flash{max-width:900px;margin:0 auto 1rem;padding:10px 14px;background:#e6f1fb;border:1px solid #1a6eb5;border-radius:6px;font-size:13px}
     .btn{display:inline-block;background:#1a6eb5;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;border:none;cursor:pointer}
