@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Gunn Group Dashboards{% endblock %}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a18;margin:0}
+    nav{background:#1a1a18;padding:10px 20px;display:flex;align-items:center;gap:18px}
+    nav a{color:#ddd;text-decoration:none;font-size:13px;font-weight:500}
+    nav a.active{color:#fff;border-bottom:2px solid #1a6eb5;padding-bottom:2px}
+    nav .spacer{flex:1}
+    .container{padding:1.5rem}
+    .flash{max-width:900px;margin:0 auto 1rem;padding:10px 14px;background:#e6f1fb;border:1px solid #1a6eb5;border-radius:6px;font-size:13px}
+    .btn{display:inline-block;background:#1a6eb5;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;border:none;cursor:pointer}
+    .btn:hover{background:#155a94}
+    form.card-form{max-width:500px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:8px;padding:1.5rem}
+    label{display:block;font-size:12px;color:#666;margin-bottom:4px;margin-top:12px}
+    input[type=text],input[type=password],input[type=number],input[type=file],select{width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px}
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="{{ url_for('me_dashboard') }}" class="{{ 'active' if request.path.startswith('/me') and 'upload' not in request.path and 'goals' not in request.path else '' }}">ME Dashboard</a>
+    <a href="{{ url_for('me_upload') }}" class="{{ 'active' if 'upload' in request.path else '' }}">Upload Report</a>
+    <a href="{{ url_for('sales_dashboard') }}" class="{{ 'active' if request.path.startswith('/sales') else '' }}">Sales Dashboard</a>
+    <span class="spacer"></span>
+    <a href="{{ url_for('logout') }}">Log out</a>
+  </nav>
+  <div class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

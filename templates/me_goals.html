@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Set Goals — {{ month }}{% endblock %}
+{% block content %}
+  <form class="card-form" method="post" style="max-width:700px">
+    <h2 style="font-size:15px;margin-bottom:4px">New month detected: {{ month }}</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:1rem">Confirm (or edit) each clinic's goals before the dashboard is generated. Pre-filled with last month's values where available.</p>
+
+    {% for clinic in clinics %}
+      <div style="border-top:1px solid #eee;padding-top:10px;margin-top:10px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">{{ clinic }}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="margin-top:0">Gift card sales goal</label>
+            <input type="number" step="any" name="{{ clinic }}__gift_card" value="{{ defaults[clinic]['gift_card'] }}">
+          </div>
+          <div>
+            <label style="margin-top:0">Retail sales goal</label>
+            <input type="number" step="any" name="{{ clinic }}__retail" value="{{ defaults[clinic]['retail'] }}">
+          </div>
+          <div>
+            <label style="margin-top:0">Service hours goal</label>
+            <input type="number" step="any" name="{{ clinic }}__service_hours" value="{{ defaults[clinic]['service_hours'] }}">
+          </div>
+          <div>
+            <label style="margin-top:0">Memberships sold goal</label>
+            <input type="number" step="any" name="{{ clinic }}__memberships" value="{{ defaults[clinic]['memberships'] }}">
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    <button class="btn" type="submit" style="margin-top:1.5rem;width:100%">Confirm Goals & Generate Dashboard</button>
+  </form>
+{% endblock %}

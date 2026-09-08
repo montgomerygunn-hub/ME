@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Upload Report{% endblock %}
+{% block content %}
+  <form class="card-form" method="post" enctype="multipart/form-data">
+    <h2 style="font-size:15px;margin-bottom:4px">Upload Scorecard Datamart</h2>
+    <p style="font-size:12px;color:#888">Upload the monthly Scorecard Datamart .xlsx export from the ME Report Portal. If this is a new month, you'll be asked to confirm goals before the dashboard is generated and emailed.</p>
+    <label>Report file (.xlsx)</label>
+    <input type="file" name="report_file" accept=".xlsx" required>
+    <button class="btn" type="submit" style="margin-top:1.25rem;width:100%">Process & Generate Dashboard</button>
+  </form>
+{% endblock %}

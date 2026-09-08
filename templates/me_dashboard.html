@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}ME Dashboard{% endblock %}
+{% block content %}
+  {% if months %}
+  <div style="max-width:900px;margin:0 auto 1rem;display:flex;justify-content:flex-end">
+    <form method="get" onchange="this.submit()">
+      <select name="month">
+        {% for m in months %}
+          <option value="{{ m.month_label }}" {% if m.month_label == selected_month %}selected{% endif %}>{{ m.month_label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if html %}
+    <iframe srcdoc="{{ html|e }}" style="width:100%;border:none;min-height:100vh" onload="this.style.height=this.contentWindow.document.body.scrollHeight+40+'px'"></iframe>
+  {% else %}
+    <div style="max-width:900px;margin:2rem auto;text-align:center;color:#888">
+      <p>No dashboards yet.</p>
+      <p style="margin-top:10px"><a class="btn" href="{{ url_for('me_upload') }}">Upload the first report</a></p>
+    </div>
+  {% endif %}
+{% endblock %}
