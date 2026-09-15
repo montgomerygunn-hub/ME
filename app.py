@@ -56,6 +56,7 @@ ME_EMAIL_TO = [
     "callie.morris@massageenvy.com",
     "beth.webster@massageenvy.com",
     "becky.ober@massageenvy.com",
+    "joel.flynn@massageenvy.com",
 ]
 SALES_EMAIL_TO = ME_EMAIL_TO
 SALES_EMAIL_SUBJECT = "FDA/Manager Sales Report"
