@@ -16,12 +16,20 @@ LTV            = 80 * 18   # $80/month × 18 months
 
 CLINIC_KEYS = {
     'Gleannloch Farms (0131)', 'Market Street (0124)', 'The Woodlands (0059)',
-    'West Katy-Firethorne (1223)', 'Copperfield (0106)', 'Cypress (0157)', 'Katy (0040)'
+    'West Katy-Firethorne (1223)', 'Copperfield (0106)', 'Cypress (0157)', 'Katy (0040)',
+    'Greatwood (0354)'
 }
 CLINIC_ORDER = [
     'Gleannloch Farms (0131)', 'Market Street (0124)', 'The Woodlands (0059)',
-    'West Katy-Firethorne (1223)', 'Copperfield (0106)', 'Cypress (0157)', 'Katy (0040)'
+    'West Katy-Firethorne (1223)', 'Copperfield (0106)', 'Cypress (0157)', 'Katy (0040)',
+    'Greatwood (0354)'
 ]
+
+# Missouri City's staff roll up under Greatwood rather than showing as their
+# own clinic row, matching the ME membership dashboard's treatment.
+CLINIC_ALIASES = {
+    'Missouri City (0025)': 'Greatwood (0354)',
+}
 
 
 def parse_report(input_path, prev):
@@ -58,7 +66,12 @@ def parse_report(input_path, prev):
 
     for r in rows:
         if len(r) < 17: continue
-        if r[3] and str(r[3]) in CLINIC_KEYS: current_clinic = r[3]
+        if r[3]:
+            raw_loc = str(r[3])
+            if raw_loc in CLINIC_KEYS:
+                current_clinic = raw_loc
+            elif raw_loc in CLINIC_ALIASES:
+                current_clinic = CLINIC_ALIASES[raw_loc]
         if not r[4] or not r[5] or r[5] == 'Employee Category': continue
         if not any(t in str(r[5]) for t in TARGET_CATS): continue
         if not current_clinic: continue

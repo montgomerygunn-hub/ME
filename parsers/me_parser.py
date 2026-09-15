@@ -9,13 +9,14 @@ directly and manages goals/history via the database instead of a local
 import re
 import requests
 import pandas as pd
+from collections import defaultdict
 from datetime import datetime
 
 # ── CLINIC ORDER ──────────────────────────────────────────────────────────────
 
 CLINIC_NAMES = [
     "Katy", "The Woodlands", "Copperfield", "Market Street",
-    "Gleannloch Farms", "Cypress", "West Katy"
+    "Gleannloch Farms", "Cypress", "West Katy", "Greatwood"
 ]
 
 CLINIC_MAP = {
@@ -26,6 +27,8 @@ CLINIC_MAP = {
     "Gleannloch Farms (0131)":     "Gleannloch Farms",
     "Copperfield (0106)":          "Copperfield",
     "West Katy-Firethorne (1223)": "West Katy",
+    "Greatwood (0354)":            "Greatwood",
+    "Missouri City (0025)":        "Greatwood",  # folded into Greatwood's totals, not shown as its own card
 }
 
 EXCLUDE = {"FM 1960 Eldridge (1368)"}
@@ -169,26 +172,49 @@ def parse_report(path, prev, goals):
     pace          = days_into / days_in_month
     month_label   = start_dt.strftime("%B %Y")
 
-    clinics = []
-    for row_idx in range(8, 16):
+    # Group raw report rows by the friendly clinic name they map to. Normally
+    # this is a 1:1 mapping, but Greatwood also absorbs the Missouri City row
+    # (folded into Greatwood's totals rather than shown as its own card), so
+    # a name can collect more than one row here.
+    rows_by_name = defaultdict(list)
+    for row_idx in range(8, 18):
         if row_idx >= len(df):
             break
         row = df.iloc[row_idx]
         loc = str(row[3]).strip()
         if loc in EXCLUDE or loc not in CLINIC_MAP:
             continue
-        name  = CLINIC_MAP[loc]
-        g     = goals.get(name, {})
-        total_mb  = float(row[5])
-        active_mb = float(row[6])
-        suspended = float(row[8])
+        rows_by_name[CLINIC_MAP[loc]].append((loc, row))
 
-        if total_mb == 0 and active_mb == 0 and loc in latest_mb:
-            total_mb, active_mb, frozen_mb, suspended = latest_mb[loc]
+    clinics = []
+    for name in CLINIC_NAMES:
+        rows = rows_by_name.get(name)
+        if not rows:
+            continue
+        g = goals.get(name, {})
 
-        inactive  = total_mb - active_mb
-        memberships_sold = int(row[20]) if pd.notna(row[20]) else 0
-        guest_count      = int(row[19]) if pd.notna(row[19]) else 0
+        total_mb = active_mb = suspended = 0.0
+        gift_card = retail = service_hours = 0.0
+        memberships_sold = guest_count = 0
+
+        for loc, row in rows:
+            r_total_mb  = float(row[5])
+            r_active_mb = float(row[6])
+            r_suspended = float(row[8])
+
+            if r_total_mb == 0 and r_active_mb == 0 and loc in latest_mb:
+                r_total_mb, r_active_mb, r_frozen_mb, r_suspended = latest_mb[loc]
+
+            total_mb  += r_total_mb
+            active_mb += r_active_mb
+            suspended += r_suspended
+            gift_card        += float(row[12]) if pd.notna(row[12]) else 0
+            retail           += float(row[13]) if pd.notna(row[13]) else 0
+            service_hours    += float(row[18]) if pd.notna(row[18]) else 0
+            memberships_sold += int(row[20]) if pd.notna(row[20]) else 0
+            guest_count      += int(row[19]) if pd.notna(row[19]) else 0
+
+        inactive   = total_mb - active_mb
         close_rate = memberships_sold / guest_count if guest_count else 0
 
         p = prev.get(name, {})
@@ -199,9 +225,9 @@ def parse_report(path, prev, goals):
             "prev_active_mb":   p.get("active_mb", active_mb),
             "suspended":        suspended,
             "inactive":         inactive,
-            "gift_card":        float(row[12]) if pd.notna(row[12]) else 0,
-            "retail":           float(row[13]) if pd.notna(row[13]) else 0,
-            "service_hours":    float(row[18]) if pd.notna(row[18]) else 0,
+            "gift_card":        gift_card,
+            "retail":           retail,
+            "service_hours":    service_hours,
             "guest_count":      guest_count,
             "memberships_sold": memberships_sold,
             "close_rate":       close_rate,
@@ -259,7 +285,7 @@ def generate_clinic_synopses(clinics, pace, days_into, days_in_month, month_labe
   Inactive %: {inact_pct:.2f}% (goal ≤4%)
   Guest count: {c['guest_count']}""")
 
-    prompt = f"""You are analyzing the monthly performance dashboard for Brett Gunn, owner of 7 Massage Envy franchise clinics in the Houston area (Gunn Group).
+    prompt = f"""You are analyzing the monthly performance dashboard for Brett Gunn, owner of 8 Massage Envy franchise clinics in the Houston area (Gunn Group).
 
 Report: {month_label} | Data through day {days_into} of {days_in_month} ({round(pace*100)}% of month reported, {days_remaining} days remaining)
 
