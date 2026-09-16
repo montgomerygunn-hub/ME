@@ -207,17 +207,23 @@ def me_upload():
             flash("Could not detect the report month from this file.")
             return redirect(url_for("me_upload"))
 
-        # Do we already have goals saved for this month? If not, send to goals form first.
-        existing_goals = db.get_report("me", report_month)
-        if not existing_goals or not existing_goals.get("goals"):
+        # Do we already have goals saved for this month, and do they cover
+        # every current clinic? A month can have goals on file but still be
+        # missing a clinic that was added to CLINIC_NAMES after that goals
+        # record was first saved (e.g. a new clinic added mid-month) -- in
+        # that case we still need to route through the goals form so the
+        # new clinic isn't silently defaulted to zero.
+        existing_report = db.get_report("me", report_month)
+        existing_goals = existing_report.get("goals") if existing_report else None
+        missing_clinics = [c for c in me_parser.CLINIC_NAMES
+                            if not existing_goals or c not in existing_goals]
+        if missing_clinics:
             # stash the uploaded file path + month in session so /me/goals can pick it up
             session["pending_upload"] = tmp_path
             session["pending_month"] = report_month
-            prior = db.get_previous_report("me", month_sort_key(report_month))
-            prior_goals = prior["goals"] if prior else None
             return redirect(url_for("me_goals", prefill="1"))
 
-        return _finish_me_processing(tmp_path, report_month, existing_goals["goals"])
+        return _finish_me_processing(tmp_path, report_month, existing_goals)
     except Exception as e:
         flash(f"Failed to process file: {e}")
         return redirect(url_for("me_upload"))
@@ -232,9 +238,23 @@ def me_goals():
         flash("No report pending — please upload a file first.")
         return redirect(url_for("me_upload"))
 
-    prior = db.get_previous_report("me", month_sort_key(month))
-    prior_goals = prior["goals"] if prior else None
-    default_goals = me_parser.default_goals_for_all_clinics(prior_goals)
+    # Prefer this month's own already-saved goals as the base (so re-running
+    # September after adding a new clinic doesn't wipe out the correct
+    # numbers you already entered for the existing clinics) -- only fall
+    # back to the prior month for a clinic with nothing on file yet.
+    existing_report = db.get_report("me", month)
+    existing_goals = existing_report.get("goals") if existing_report else None
+    if existing_goals:
+        base_goals = dict(existing_goals)
+        if any(c not in base_goals for c in me_parser.CLINIC_NAMES):
+            prior = db.get_previous_report("me", month_sort_key(month))
+            prior_goals = prior["goals"] if prior else {}
+            for c in me_parser.CLINIC_NAMES:
+                base_goals.setdefault(c, prior_goals.get(c, {}))
+    else:
+        prior = db.get_previous_report("me", month_sort_key(month))
+        base_goals = prior["goals"] if prior else None
+    default_goals = me_parser.default_goals_for_all_clinics(base_goals)
 
     if request.method == "GET":
         return render_template("me_goals.html", month=month, clinics=me_parser.CLINIC_NAMES,
